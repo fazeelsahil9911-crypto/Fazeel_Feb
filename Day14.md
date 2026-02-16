@@ -1,59 +1,99 @@
-# Day 14 - MINI PROJECT
+# Day 14 - Kubernetes Advanced Concepts & Multi -Environment Deployment
 
-Complete these steps:
+##    Ansible - Setup Nginx with Reverse Proxy
 
-## 1 Terraform - Create EC2 (any instance type)
+'''yaml
+- name: Setup Nginx with Reverse Proxy
+  hosts: all
+  become: yes
+  tasks:
+    - name: Install nginx
+      yum:
+        name: nginx
+        state: present
+    - name: Configure nginx as reverse proxy
+      template:
+        src: reverse-proxy.conf.j2
+        dest: /etc/nginx/conf.d/reverse-proxy.conf
+    - name: Restart nginx service
+      service:
+         name: nginx
+         state: restarted
+         enabled: yes
+  Terraform - Create S3 Bucket with Versioning and Logging
+resource "aws_s3_bucket" "pathnex_bucket" {
+  bucket = "pathnex-bucket"
+  versioning {
+    enabled = true 
+  }
 
-- VPC
-- Subnet
-- Internet gateway
-- Route table
-- EC2 (c5.xlarge / r5.2xlarge / r6.4xlarge / c6i.8xlarge /c6a.12xlarge)
-
-## 2 Ansible - Install Nginx & Deploy HTML File
-
-## 3 Kubernetes - Create Deployment + Service
-
-## 4 Shell - Print CPU, Memory, Disk
-
-
-# Scheduled Pipelines
-
-##    Jenkins Pipeline - Schduled Build
-You will learn how to **schdule a Jenkins pipeline using cron**.
-
+  logging {
+    target_bucket = "pathnex-log-bucket"
+    target_prefix = "logs/"
+  }
+} 
+    Kubernetes - Ingress with Nginx Controller
+  apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    name: pathnex-ingress
+    annotations:
+      nginx.ingress.kubernetes.io/rewrite-target: /
+  spec:
+    rules:
+      - host: pathnex.local
+        http:
+          paths:
+          - path: /
+            pathType: prefix
+            backend:
+              service:
+                name: pathnex-service
+                port:
+                  number: 80
+    Jenkinsfile  -  Build, Test, and Deploy with Stages
 pipeline {
     agent any
-    environment {
-        INSTITUTE_NAME = "Pathnex"
-    }
-    triggers {
-        cron('H 2 * * *') // every day at 2 AM
-    }
     stages {
-        stage('Checkout') {
-            steps {
-                git url: 'https://github.com/Pathnex/sample-java-app.git'
-            }
-        }
         stage('Build') {
             steps {
-                sh 'mvn clean package'
+                echo 'Building Docker image...'
+                docker.builf('pathnex-web-app')
+            } 
+        }
+        stage('Test') {
+            steps {
+                echo 'Running tests...'
             }
         }
+        stage('Deploy to Kubernetes') {
+            steps {
+                script {
+                    sh 'Kubectl apply -f kubernetes/deployment.yaml'
+                }
+            } 
+        } 
     }
 }
+   GitLab CI/CD - Multi-stage Deployment with Helm
+   stages:
+     - build
+     - push
+     - deploy
 
-##    GitLab CI - Scheduled Pipeline
-You will learn how to **schedule GitLab CI pipelines via cron**.
+   build:
+     stage: build
+     script:
+       - docker build -t pathnex-web-app .
 
-stages:
-  - build
+   push:
+     stage: push
+     script:
+       - docker login -u "$CI_REGISTRY_USER" -p "4CI_REGISTRY_PASSWORD"
+       - docker push pathnexc-web-app
 
-build:
-  stage: build
-  image: maven:3.8.1-jdk-17
-  script:
-    - git clone https://github.com/Pathnex/sample-java-app.git
-    - cd sample-java-app
-    - mvn clean package
+  deploy:
+    stage: deploy
+    script:
+      - helm upgrade --install pathnex-nginx pathnex/nginx-ingress
+
